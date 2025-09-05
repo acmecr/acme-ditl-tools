@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# This script is designed to be called as the -k command to
+# the dnscap and tcpdump-split programs.
+#
+# Note: it sort of assumes that files can be uploaded at least
+# as fast as they are generated.  If uploading is too slow you
+# will end up with multiple pcap-submit-to-oarc.sh scripts
+# running simultaneously.
+
+. ./.env
+
+$MINIO_BIN_DIR/mc alias set minio http://$MINO_ALIAS_IP:9000 admin $MINIO_ALIAS_PASSWORD 
+
+$MINIO_BIN_DIR/mc cp $CAPTURE_DIR/* minio/sidnlabs-iceberg-data/pcap-in/ 
+
+rm -rf $CAPTURE_DIR/*
+
+exit 0
