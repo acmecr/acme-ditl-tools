@@ -31,14 +31,18 @@ $ make install
 
 ### Instale o mc (MinIO Client)
 
-O MinIO é uma ferramenta de armazenamento em cloud. O ENTRADA2 utiliza um servidor MinIO para receber os dados de coleta de um servidor DNS. 
+O MinIO Client (mc) é uma ferramenta que de gerência de objetos S3. Nos scripts, o mc é utilizado para enviar arquivos `.gz` contendo pcaps coletados para o servidor contendo o ENTRADA2.
 
-Realize a instalação do MinIO Client na máquina seguindo as [instruções oficiais](https://docs.min.io/enterprise/aistor-object-store/reference/cli/).
-
-Em seguida, configure um endpoint que aponta ao servidor hospedando o ENTRADA2:
+Copie o diretório `minio-binaries/` deste repositório para o path `/root/minio-binaries/`:
 
 ```
-# minio/binaries/mc alias set minio http://{IP-DO-ENTRADA2-AQUI}:9000 admin {SUA-SENHA} 
+$ cp -r minio-binaries /root/
+```
+
+Em seguida, configure um endpoint que aponta o mc ao servidor hospedando o ENTRADA2:
+
+```
+$ minio/binaries/mc alias set minio http://{IP-DO-ENTRADA2-AQUI}:9000 admin {SUA-SENHA} 
 ```
 
 OBS: Execute o comando acima como root! As configurações de alias são salvas para cada usuário.
@@ -47,11 +51,11 @@ OBS: Execute o comando acima como root! As configurações de alias são salvas 
 
 Os scripts de coleta utilizam dnscap para realizar a captura de consultas DNS no servidor e os enviam para o servidor do MinIO presente na instância do ENTRADA2.
 
-Lembre de realizar todo o processo como root! no diretorio /root!
+Lembre de realizar todo o processo como root! No diretorio `/root`!
 
 Transfira [o diretório de ferramentas de coleta](https://github.com/acmecr/acme-ditl-tools/) para a máquina.
 
-Crie um diretório `captures/` na sua `$HOME`.
+Crie um diretório `captures/` em `/root/`.
 
 Edite o arquivo em `scripts/.env`, com as informações do seu servidor:
 
