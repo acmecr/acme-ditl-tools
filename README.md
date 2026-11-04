@@ -1,87 +1,179 @@
+
+<div align="center">
+
 # acme-ditl-tools 
 
-Este repositório contém uma série de scripts que realizam a coleta de consultas em um servidor DNS, e envia os pacotes capturados a uma instância do ENTRADA2, que converte os pacotes para o formato Apache Parquet, consideravelmente otimizando o armazenamento de dados.
+Set de scripts para coleta de DNS passivo com Entrada 2
 
-Os scripts para a realização da coleta foram adaptados dos utilizados no programa ["A Day in the Life of the Internet"](https://www.caida.org/projects/ditl/), realizado pelo DNS-OARC.
+<br>
 
-# Instruções para deploy
+Os scripts foram desenvolvidos para serem executados dentro do servidor DNS onde a coleta será feita. O tráfego observado é capturado em arquivos PCAPs, e então enviados a uma instância do Entrada2.  
 
-As etapas a seguir descrevem o processo para iniciar a coleta de dados e os enviarem ao ENTRADA2. 
+
+---
+
+A metodologia de coleta e seus os scripts foram adaptados dos utilizados no programa ["A Day in the Life of the Internet"](https://www.caida.org/projects/ditl/), realizado pelo DNS-OARC.
+
+</div>
+
+<br>
+<br>
+
+
+# Instruções de deploy
+
+As etapas a seguir descrevem o processo de instalação, configuração e início da coleta.
+
+<br>
 
 ## Etapas iniciais
 
-- Verifique se a data e o horário do servidor no qual as ferramentas de coleta serão instaladas estão corretos e sincronizados com o seu respectivo servidor NTP
-- Mude o usuário para root e entre em seu diretório padrão em /root/. Isto é necessário pois os scripts devem ser executados como superusuário. Desta forma, é vantajoso realizar a configuração no diretório de root.
+Entre no usuário root
 
-### Instale DNSCAP
+```bash
+su root
+```
 
-A ferramenta dnscap é utilizada pelos scripts para realizar a captura de pacotes do sistema. É recomendado utilizar [a versão 1.7.1 da ferramenta, disponível no site do DNS-OARC](https://dnscap.dns-oarc.net/). 
+Troque seu diretório para `/opt/` (diretorio presumido no exemplo de configuracao) e clone o repositorio:
+
+```bash
+cd /opt/
+git clone https://github.com/acmecr/acme-ditl-tools
+```
+
+Crie o diretório de coleta
+
+```bash
+mkdir -p /var/lib/acme-ditl/captures/ 
+```
+*localização alterável nas configurações*
+
+Neste diretório tembém são armazenados pcaps que não foram enviados em instâncias onde o endpoint MinIO do Entrada 2 não esteja disponível.
+
+<br>
+
+
+## Dependências
+
+Os scripts dependem primariamente dos seguintes pacotes:
+
+- dnscap
+- chrony 
 
 Realize a instalação com os seguintes comandos:
 
-```
-$ sudo apt install gcc net-tools
-$ sudo apt-get install libpcap-dev
-$ curl -O https://dnscap.dns-oarc.net/dnscap-1.7.1.tar.gz
-$ tar -xvzf dnscap-1.7.1
-$ cd dnscap-1.7.1/
-$ ./configure
-$ make install 
+```bash
+sudo apt update
+sudo apt install dnscap chrony
 ```
 
-### Instale o mc (MinIO Client)
+<br>
 
-O MinIO Client (mc) é uma ferramenta que de gerência de objetos S3. Nos scripts, o mc é utilizado para enviar arquivos `.gz` contendo pcaps coletados para o servidor contendo o ENTRADA2.
 
-Copie o diretório `minio-binaries/` deste repositório para o path `/root/minio-binaries/`:
+## Configure os parametros da coleta
 
-```
-$ cp -r minio-binaries /root/
-```
+Cria o arquivo de configuração local a partir do template:
 
-Em seguida, configure um endpoint que aponta o mc ao servidor hospedando o ENTRADA2:
-
-```
-$ minio/binaries/mc alias set minio http://{IP-DO-ENTRADA2-AQUI}:9000 admin {SUA-SENHA} 
+```bash
+cp -v scripts/settings.example.sh scripts/settings.sh
 ```
 
-OBS: Execute o comando acima como root! As configurações de alias são salvas para cada usuário.
+Configure os parâmetros da coleta baseados nas instruções:
 
-### Configuração dos scripts
-
-Os scripts de coleta utilizam dnscap para realizar a captura de consultas DNS no servidor e os enviam para o servidor do MinIO presente na instância do ENTRADA2.
-
-Lembre de realizar todo o processo como root! No diretorio `/root`!
-
-Transfira [o diretório de ferramentas de coleta](https://github.com/acmecr/acme-ditl-tools/) para a máquina.
-
-Crie um diretório `captures/` em `/root/`.
-
-Edite o arquivo em `scripts/.env`, com as informações do seu servidor:
-
-```
-CAPTURE_DIR=/root/captures
-MINIO_BIN_DIR=/root/minio-binaries
-MINIO_ALIAS_IP=
-MINIO_ALIAS_PASSWORD=
-IFACES=
-SERVER_NAME=
-KICK_CMD=/root/acme-ditl-tools/scripts/pcap-submit-to-oarc.sh
-TIME_INTERVAL=600
+```bash
+vim scripts/settings.sh
 ```
 
-### Executando o projeto e criando crontab
+## Configure o endpoint da coleta via mc (MinIO Client)
 
-Para testar a coleta, execute o comando:
+O MinIO Client (mc) é uma ferramenta de gerência de objetos S3. Ele é utilizado para o upload dos pcaps coletados ao Entrada 2.
 
+Seus binários estão inclusos neste repositório por conveniência.
+
+Certifique de que as credenciais do mc foram declaradas no seu `settings.sh`, e execute o comando para a configuração automática do endpoint:
+
+```bash
+./scripts/setup-minio-alias.sh
 ```
-$ sudo sh capture-dnscap.sh
+
+## Valide as configurações, teste a coleta
+
+Execute o teste de validação dos scripts:
+
+```bash
+make check
 ```
 
-e entre na interface web do MinIO Object Store do ENTRADA2 (acesse via `http://{seu_IP_servidor_Entrada2}:9090`), e veja se os dados aparecem na pasta `sidnlabs-iceberg-data/pcap-done`.
+Inicie a coleta manualmente em foreground:
 
-Caso o teste for bem sucedido, adicione a seguinte linha no seu arquivo crontab para que a coleta se inicie em cada boot:
+```bash
+./scripts/capture-dnscap.sh
+```
+*certifique-se de que você ainda esteja logado como root*
 
+O script irá realizar testes iniciais e imprimir o comando do dnscap resultante das configurações.
+
+Verifique se a coleta está ocorrendo após o intervalo definido em `settings.sh` 
+
+No diretório local:
+```bash
+ls -lh /var/lib/acme-ditl/captures/
 ```
-@reboot cd /root/ditl-tools/scripts/ && sh capture-dnscap.sh
+No Entrada2:
+```bash
+minio-binaries/mc ls minio/sidnlabs-iceberg-data/pcap-done/
+minio-binaries/mc ls minio/sidnlabs-iceberg-data/pcap-in/
 ```
+
+Após verificar que a coleta está sendo realizada como desejado, encerre a coleta em foreground e prossiga:
+
+*(encerre o processo de coleta na janela em que ele foi iniciado)*
+```
+CTRL+C
+```
+
+## Instale o serviço do systemd para habilitar a coleta após cada boot
+
+O serviço incluso nesse repositório realiza o agendamento automático da coleta.
+
+Copie o arquivo para o diretório de serviços do systemd e habilite a coleta durante o boot:
+
+```bash
+cp systemd/coleta-entrada2.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now coleta-entrada2.service
+```
+
+Verifique o funcionamento do serviço
+
+```bash
+systemctl status coleta-entrada2.service
+```
+
+```bash
+journalctl -u coleta-entrada2.service
+```
+
+Verifique novamente se a coleta está gerando dados após o intervalo definido:
+
+No diretório local:
+
+```bash
+ls -lh /var/lib/acme-ditl/captures/
+```
+
+No Entrada2:
+
+```bash
+minio-binaries/mc ls minio/sidnlabs-iceberg-data/pcap-done/
+minio-binaries/mc ls minio/sidnlabs-iceberg-data/pcap-in/
+```
+
+
+---
+
+<div align="center">
+
+Pronto! Desfrute de sua coleta de dados!
+
+</div>

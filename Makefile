@@ -1,7 +1,7 @@
+.PHONY: check
 
-all clean install:
-	@for d in *; do \
-		test -s $$d/Makefile || continue ; \
-		echo "(cd $$d; ${MAKE} $@)" ; \
-		(cd $$d; ${MAKE} $@) ; \
-	done
+check:
+	sh -n scripts/capture-dnscap.sh
+	sh -n scripts/pcap-submit-to-oarc.sh
+	sh -n scripts/setup-minio-alias.sh
+	sh -n scripts/settings.example.sh

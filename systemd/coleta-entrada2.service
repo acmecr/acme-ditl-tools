@@ -1,0 +1,19 @@
+[Unit]
+Description=Coleta DNS Passivo (UNESP) 
+Wants=network-online.target
+After=network-online.target chrony.service
+
+[Service]
+Type=simple
+User=root
+
+WorkingDirectory=/opt/acme-ditl-tools/scripts
+
+ExecStartPre=/opt/acme-ditl-tools/scripts/setup-minio-alias.sh
+ExecStart=/opt/acme-ditl-tools/scripts/capture-dnscap.sh
+
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
